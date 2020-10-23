@@ -182,3 +182,43 @@ public int rating(int numberOfLateDeliveries) {
 
 # 3. Extract Variable  
 표현식이 복잡해서 이해하기 어려울 때, 지역 변수를 활용해서 해결  
+해당 메서드 내에서만 사용한다면 지역 변수로 하지만, 메서드를 벗어나 넓은 범위에서 사용되면  
+메서드로 추출하는 것을 고려해 봐야함
+
+## 절차  
+
+1. 불변 변수를 선언하고, 이름을 붙일 표현식을 대입한다.  
+
+2. 원본 표현식을 새로 만든 변수로 교체한다.  
+
+3. 테스트한다.  
+
+4. 표현식을 여러 곳에서 사용한다면, 새로 만든 변수로 교체한다.  
+   (교체할 때마다 테스트를 해야한다.)  
+
+## 예시
+
+* 원본 메서드
+```
+public double price(int quantity, int itemPrice) {
+    // 가격 = 기본 가격 - 수량 할인 + 배송비
+    return (quantity * itemPrice)
+            - (Math.max(0, quantity - 500) * itemPrice * 0.05)
+            + (Math.min(quantity * itemPrice * 0.1, 100));
+}
+```
+
+* 변수 추출 후
+```
+public double price(int quantity, int itemPrice) {
+    // 가격 = 기본 가격 - 수량 할인 + 배송비
+    int basePrice = quantity * itemPrice;
+    double quantityDiscount = Math.max(0, quantity - 500) * itemPrice * 0.05;
+    double shipping = Math.min(quantity * itemPrice * 0.1, 100);
+    return basePrice
+            - quantityDiscount
+            + shipping;
+}
+```
+
+# 4. Inline Variable

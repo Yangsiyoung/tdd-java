@@ -221,4 +221,160 @@ public double price(int quantity, int itemPrice) {
 }
 ```
 
-# 4. Inline Variable
+# 4. Inline Variable  
+Extract Variable 을 통해 표현식을 변수에 할당 해 표현식에 대한 이름으로 사용하고 대부분 긍정적인 효과이지만,  
+표현식과 이름이 별차이 없을 때가 있다. 이럴 때 인라인하는 것이 좋다.
+
+## 절차  
+1. 변수로 된 표현식을, 원본 표현식으로 바꾼다.  
+  
+2. 테스트 한다. 
+
+3. 변수를 사용하는 모든 부분을 교체할 때 까지 반복한다.  
+
+4. 변수 선언문과 대입문을 지운다.  
+
+5. 테스트 한다.  
+
+## 예시  
+
+* 원본 변수 및 표현식  
+```
+public boolean basePriceOverThan1000(price) {
+    int basePrice = price;
+    return (basePrice > 1000)
+}
+```
+
+* 변수 인라인 후  
+```
+public boolean basePriceOverThan1000(price) {
+    return (basePrice > 1000)
+}
+```
+
+# 5. Change Function Declaration  
+메서드는 프로그램을 작은 부분으로 나누는 수단.  
+중요한 것은 메서드 이름, 이름이 잘 생각 나지않는다면 주석으로 메서드의 목적을 설명해보다보면  
+괜찮은 이름이 떠오르기도 한다.  
+
+매개변수는 메서드가 외부 세계와 어우러지는 방식을 정의  
+
+즉 이 테크닉은 메서드 명 혹은 메서드 매개변수를 바꾸는 작업이다.  
+
+## 절차
+메서드 선언과 호출문을 단번에 고칠 수 있다면 간단한 절차를,  
+호출하는 곳이 많거나, 호출 과정이 복잡하거나, 호출 대상이 다형 메서드거나, 선언을 복잡하게 변경할 때는  
+마이그레이션 절차를 따르자.  
+
+### 간단한 절차
+1. 매개변수를 제거하고자한다면, 메서드 내에서 매개변수를 참조한는 곳이 없는지 확인
+  
+2. 메서드 선언을 원하는 형태로 변경  
+
+3. 기존 메서드를 참조하는 부분을 모두 찾아서 바뀐 형태로 수정  
+
+4. 테스트 한다.  
+
+### 마이그레이션 절차  
+1. 메서드 본문을 적절하게 리팩토링 한다.  
+
+2. 메서드 본문을 새로운 메서드로 추출한다.  
+
+3. 추출한 메서드에 매개변수를 추가해야한다면, '간단한 절차' 를 활용한다.  
+
+4. 테스트 한다.  
+
+5. 기존 함수를 인라인 한다.  
+
+6. 이름을 적절하게 정의한다.  
+
+7. 테스트 한다.  
+
+## 예시  
+
+### 함수 이름 바꾸기 (간단한 절차)  
+* 원본 메서드  
+```
+public double circum(int radius) {
+    return 2 * Math.PI * radius;
+}
+```
+
+* 변경 후  
+```
+public double circumference(int radius) {
+    return 2 * Math.PI * radius;
+}
+```  
+
+### 함수 이름 바꾸기 (마이그레이션 절차)  
+* 원본 메서드  
+```
+public double circum(int radius) {
+    return 2 * Math.PI * radius;
+}
+```
+
+* 변경 후  
+```
+public double circum(int radius) {
+    return circumference(radius);
+}
+
+public double circumference(int radius) {
+    return 2 * Math.PI * radius;
+}
+```
+
+이렇게 변경하고 기존 circum 메서드를 사용하던 곳을 circumference 메서드로 바꾼뒤  
+테스트 하고 이상이 없으면 circum 과 circumference 의 기능이 동일하기에  
+circum 메서드가 폐기 예정(deprecated) 임을 알린다.  
+그리고 나중에 client 들이  circumference 메서드로 갈아타면  
+circum 메서드를 제거한다.  
+
+### 매개변수 추가하기  
+
+* 원본 메서드  
+```
+public void addReservation(String customer) {
+    reservations.add(customer);
+}
+```
+
+여기서 예약 시 우선순위 큐를 지원하라는 새로운 요구 추가
+```
+public void addReservation(String customer) {
+    addReservationWithPriority(customer, false);
+}
+
+public void addReservationWithPriority(String customer, boolean priority) {
+    reservations.add(customer);
+}
+```
+
+### 매개변수를 속성으로 바꾸기  
+고객이 뉴잉글랜드에 살고있는지 확인하는 메서드가 있다고 해보자.  
+
+* 기존 메서드
+```
+public boolean isNewEngland(ChangeFunctionDeclarationCustomer customer) {
+    return Stream.builder().add("MA").add("CT").add("ME").add("VT").add("NH").add("RI").build().anyMatch((state) -> state.equals(customer.getState()));
+}
+```
+
+고객에 대한 의존성을 제거하고, 거주하는 주에 대한 정보만 받으면 더 넓은 문맥에서 사용가능  
+
+메서드 매개변수 타입 변경 + 프로퍼트로 변경
+```
+
+private List<ChangeFunctionDeclarationCustomer> newEnglanders =  customers.stream().filter((customer) -> isNewEngland(customer.getState())).collect(Collectors.toList());
+
+public boolean isNewEngland(String stateCode) {
+    return Stream.builder().add("MA").add("CT").add("ME").add("VT").add("NH").add("RI").build().anyMatch((state) -> state.equals(stateCode));
+}
+```
+
+지금까지하면서 든 생각은 알아보기 쉽게하는 것이 목적인거같다 그리고 알아보기 쉽게하기 위한  
+기법들을 알려주고 있는 듯 하다.  
+

@@ -255,5 +255,192 @@ Null 값에 대해 아무런 작업을 하지 않으면 NPE 가 발생하기 때
 * 유효하지 않은 암호를 뜻하는 값을 리턴한다.  
 
 여기서 2번째 방법을 채택하고, PasswordStrength.INVALID 라는 값을 추가해서 사용하도록 하겠다.  
+그리고 추가적으로 빈값에 대해서도 처리를 하겠다.  
 
+```
+@DisplayName("암호화 검사기 테스트")
+public class PasswordStrengthMeterTest {
 
+    private PasswordStrengthMeter passwordStrengthMeter = new PasswordStrengthMeter();
+
+    private void assertStrength(String password, PasswordStrength expect) {
+        PasswordStrength result = passwordStrengthMeter.meter(password);
+        assertEquals(expect, result);
+    }
+
+    @DisplayName("패스워드가 조건을 모두 충족하면 암호 강도가 강함")
+    @Test
+    public void meetsAllCriteriaThenStrongPassword() {
+        String password = "abcdABCD1234";
+        assertStrength(password, PasswordStrength.STRONG);
+    }
+
+    @DisplayName("길이만 8글자 미만이고 나머지 조건은 충족하는 경우")
+    @Test
+    public void meetsOtherCriteriaExceptForLengthThenNormal() {
+        String password = "aA1";
+        assertStrength(password, PasswordStrength.NORMAL);
+    }
+
+    @DisplayName("숫자는 포함하지 않고 나머지 조건은 충족하는 경우")
+    @Test
+    public void meetsOtherCriteriaExceptForNumberThenNormal() {
+        String password = "aaaaAAAA";
+        assertStrength(password, PasswordStrength.NORMAL);
+    }
+
+    @DisplayName("Null 값인 경우")
+    @Test
+    public void nullInputThenInvalid() {
+        assertStrength(null, PasswordStrength.INVALID);
+    }
+
+    @DisplayName("빈값인 경우")
+    @Test
+    public void emptyInputThenInvalid() {
+        assertStrength("", PasswordStrength.INVALID);
+    }
+}
+```
+
+* PasswordStrength.java
+```
+public enum  PasswordStrength {
+    NORMAL, INVALID, STRONG
+}
+```
+
+* PasswordStrengthMeter.java
+```
+public class PasswordStrengthMeter {
+    public PasswordStrength meter(String password) {
+
+        if(null == password || password.isEmpty()) {
+            return PasswordStrength.INVALID;
+        }
+
+        if(password.length() < 8) {
+            return PasswordStrength.NORMAL;
+        }
+
+        if(!meetsContainingNumberCriteria(password)) {
+            return PasswordStrength.NORMAL;
+        }
+
+        return PasswordStrength.STRONG;
+    }
+
+    private boolean meetsContainingNumberCriteria(String string) {
+        for(char ch : string.toCharArray()) {
+            if(ch >= '0' && ch <= '9') {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+```
+### 대문자를 포함하지 않고 나머지 조건을 충족하는 경우
+```
+@DisplayName("암호화 검사기 테스트")
+public class PasswordStrengthMeterTest {
+
+    private PasswordStrengthMeter passwordStrengthMeter = new PasswordStrengthMeter();
+
+    private void assertStrength(String password, PasswordStrength expect) {
+        PasswordStrength result = passwordStrengthMeter.meter(password);
+        assertEquals(expect, result);
+    }
+
+    @DisplayName("패스워드가 조건을 모두 충족하면 암호 강도가 강함")
+    @Test
+    public void meetsAllCriteriaThenStrongPassword() {
+        String password = "abcdABCD1234";
+        assertStrength(password, PasswordStrength.STRONG);
+    }
+
+    @DisplayName("길이만 8글자 미만이고 나머지 조건은 충족하는 경우")
+    @Test
+    public void meetsOtherCriteriaExceptForLengthThenNormal() {
+        String password = "aA1";
+        assertStrength(password, PasswordStrength.NORMAL);
+    }
+
+    @DisplayName("숫자는 포함하지 않고 나머지 조건은 충족하는 경우")
+    @Test
+    public void meetsOtherCriteriaExceptForNumberThenNormal() {
+        String password = "aaaaAAAA";
+        assertStrength(password, PasswordStrength.NORMAL);
+    }
+
+    @DisplayName("Null 값인 경우")
+    @Test
+    public void nullInputThenInvalid() {
+        assertStrength(null, PasswordStrength.INVALID);
+    }
+
+    @DisplayName("빈값인 경우")
+    @Test
+    public void emptyInputThenInvalid() {
+        assertStrength("", PasswordStrength.INVALID);
+    }
+
+    @DisplayName("대문자를 포함하지 않고 나머지 조건을 충족하는 경우")
+    @Test
+    public void meetsOtherCriteriaExceptForUppercaseThenNormal() {
+        String password = "aaaabbbb1";
+        assertStrength(password, PasswordStrength.NORMAL);
+    }
+}
+```
+
+* PasswordStrengthMeter.java
+```
+public class PasswordStrengthMeter {
+    public PasswordStrength meter(String password) {
+
+        if(null == password || password.isEmpty()) {
+            return PasswordStrength.INVALID;
+        }
+
+        if(password.length() < 8) {
+            return PasswordStrength.NORMAL;
+        }
+
+        if(!meetsContainingNumberCriteria(password)) {
+            return PasswordStrength.NORMAL;
+        }
+
+        if(!meetsContainingUppercaseCriteria(password)) {
+            return PasswordStrength.NORMAL;
+        }
+
+        return PasswordStrength.STRONG;
+    }
+
+    private boolean meetsContainingNumberCriteria(String string) {
+        for(char ch : string.toCharArray()) {
+            if(ch >= '0' && ch <= '9') {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean meetsContainingUppercaseCriteria(String string) {
+        boolean containsUppercase = false;
+        for(char ch : string.toCharArray()) {
+            if(ch >= 'A' && ch <= 'Z') {
+                containsUppercase = true;
+                break;
+            }
+        }
+        return containsUppercase;
+    }
+}
+```
+### 이제 남은 테스트들
+지금까지 모든 조건을 충족하거나, 한가지 조건만 충족하지 않는 경우를 진행했고,  
+이제 한가지 조건만 충족하거나, 모든 조건을 충족하지 않는 경우에 대한 테스트를 진행해야한다.
+
+### 길이가 8글자 이상인 조건만 충족하는 경우

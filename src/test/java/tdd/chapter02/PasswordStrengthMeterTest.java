@@ -42,4 +42,24 @@ public class PasswordStrengthMeterTest {
     public void nullInputThenInvalid() {
         assertStrength(null, PasswordStrength.INVALID);
     }
+
+    @DisplayName("빈값인 경우")
+    @Test
+    public void emptyInputThenInvalid() {
+        assertStrength("", PasswordStrength.INVALID);
+    }
+
+    @DisplayName("대문자를 포함하지 않고 나머지 조건을 충족하는 경우")
+    @Test
+    public void meetsOtherCriteriaExceptForUppercaseThenNormal() {
+        String password = "aaaabbbb1";
+        assertStrength(password, PasswordStrength.NORMAL);
+    }
+
+    @DisplayName("길이가 8글자 이상인 조건만 충족하는 경우")
+    @Test
+    public void meetsOnlyLengthCriteriaThenNormal() {
+        String password = "aaaaaaaa";
+        assertStrength(password, PasswordStrength.WEAK);
+    }
 }

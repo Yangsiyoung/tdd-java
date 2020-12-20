@@ -1,29 +1,40 @@
 package tdd.chapter02;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class PasswordStrengthMeter {
     public PasswordStrength meter(String password) {
-
         if(null == password || password.isEmpty()) {
             return PasswordStrength.INVALID;
         }
+        return decidePasswordStrength(password);
+    }
 
+    private PasswordStrength decidePasswordStrength(String password) {
+        List<Boolean> meetsCriteriaList = getMeetsCriteriaList(password);
+        return getPasswordStrengthByMeetsCriteriaList(meetsCriteriaList);
+    }
+
+    private List<Boolean> getMeetsCriteriaList(String password) {
+        List<Boolean> meetsCriteriaList = new ArrayList<>();
         boolean lengthEnough = password.length() >= 8;
+        meetsCriteriaList.add(lengthEnough);
         boolean containsNumber = meetsContainingNumberCriteria(password);
+        meetsCriteriaList.add(containsNumber);
         boolean containsUppercase = meetsContainingUppercaseCriteria(password);
+        meetsCriteriaList.add(containsUppercase);
+        return meetsCriteriaList;
+    }
 
-        if(lengthEnough && !containsNumber && !containsUppercase) {
+    private PasswordStrength getPasswordStrengthByMeetsCriteriaList(List<Boolean> meetsCriteriaList) {
+        int meetsCriteriaCount = (int)meetsCriteriaList.stream().filter(criteria->criteria).count();
+
+        if(meetsCriteriaCount <= 1) {
             return PasswordStrength.WEAK;
         }
 
-        if(!lengthEnough) {
-            return PasswordStrength.NORMAL;
-        }
-
-        if(!containsNumber) {
-            return PasswordStrength.NORMAL;
-        }
-
-        if(!containsUppercase) {
+        if(meetsCriteriaCount == 2) {
             return PasswordStrength.NORMAL;
         }
 

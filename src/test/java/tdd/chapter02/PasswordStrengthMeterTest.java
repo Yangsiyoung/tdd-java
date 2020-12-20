@@ -58,8 +58,29 @@ public class PasswordStrengthMeterTest {
 
     @DisplayName("길이가 8글자 이상인 조건만 충족하는 경우")
     @Test
-    public void meetsOnlyLengthCriteriaThenNormal() {
+    public void meetsOnlyLengthCriteriaThenWeak() {
         String password = "aaaaaaaa";
+        assertStrength(password, PasswordStrength.WEAK);
+    }
+
+    @DisplayName("숫자 포함 조건만 충족하는 경우")
+    @Test
+    public void meetsOnlyNumberCriteriaThenWeak() {
+        String password = "1234567";
+        assertStrength(password, PasswordStrength.WEAK);
+    }
+
+    @DisplayName("대문자 포함 조건만 충족하는 경우")
+    @Test
+    public void meetsOnlyUppercaseCriteriaThenWeak() {
+        String password = "ABCD";
+        assertStrength(password, PasswordStrength.WEAK);
+    }
+
+    @DisplayName("아무 조건도 충족하지 않은 경우")
+    @Test
+    public void meetsNoCriteriaThenWeak() {
+        String password = "abc";
         assertStrength(password, PasswordStrength.WEAK);
     }
 }

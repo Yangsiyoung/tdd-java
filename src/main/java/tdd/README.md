@@ -40,8 +40,8 @@ public class Calculator {
 ```
 
 # TDD 시작하기
-[보러가기]()
+[보러가기](https://github.com/Yangsiyoung/tdd-java/tree/master/src/main/java/tdd/chapter02)
 
 # 테스트 코드 작성 순서
-[보러가기]()
+[보러가기](https://github.com/Yangsiyoung/tdd-java/tree/master/src/main/java/tdd/chapter03)
 

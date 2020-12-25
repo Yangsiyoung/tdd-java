@@ -270,3 +270,111 @@ public class ExpiryDateCalculator {
 
 이후 테스트가 통과하는 것을 확인한다.  
 
+## 예외 상황 처리
+예를들어 2021-01-31 에 납부액 1만원이면 만료일은 2021-02-28 이다.  
+또한 2021-05-31 에 납부액 1만원이면 만료일은 2021-06-30 이다.  
+즉, 월마다 다른 날짜 수 때문에 납부일 기준으로 다음 달의 같은 날이 만료일이 되지 않는 경우도 테스트로 추가해야 한다.  
+
+```
+@DisplayName("납부일과 한달 뒤 일자가 같지 않음")
+    @Test
+    public void notSameDayPay10000Won() {
+        LocalDate billingDate = LocalDate.of(2021, 1, 30);
+        LocalDate expect = LocalDate.of(2021, 2, 28);
+        int payAmount = 10000;
+        ExpiryDateCalculator expiryDateCalculator = new ExpiryDateCalculator();
+        LocalDate result = expiryDateCalculator.calculate(billingDate, payAmount);
+        assertEquals(expect, result);
+    }
+```
+
+이 테스트는 바로 통과가 되는데 LocalDate.plusMonths() 메서드가 알아서 처리를 해주어서 그렇다.  
+
+## 다시 예외 상황
+다음 테스트를 고를 시간이다 쉽거나 예외상황을 고르면 된다.  
+일단 쉬운 예를 생각해보자.  
+* 2만원 지불하면 만료일은 2달 뒤
+* 3만원 지불하면 만료일을 3달 뒤
+
+그리고 예외 상황을 생각해보자.
+* 첫 납부일이 2021-01-31 이고 만료되는 2021-02-28 에 1만원 납부하면 다음 만료일은 2021-03-31 이다.
+* 첫 납부일이 2021-01-30 이고 만료되는 2021-02-28 에 1만원 납부하면 다음 만료일은 2021-03-30 이다.
+* 첫 납부일이 2021-05-31 이고 만료되는 2021-06-30 에 1만원 납부하면 다음 만료일은 2021-07-31 이다.
+
+2만원 지불하고 2달 뒤를 하는게 쉬워보이는데...  
+하지만 1만원 지불하는거를 구현하고 있었으니까 1만원 지불에 대한 예외상황을 마무리하자.  
+
+납부일과 납부액만 있었는데 이제 첫 납부일을 생각해야한다.  
+그래야 위의 예외 상황에서 첫 납부일 기준으로 만료일을 계산할 수 있을테니까.  
+
+## 다음 테스트 추가전에 리팩토링
+납부일, 납부액 -> 첫 납부일, 납부일, 납부액 요렇게 3개로 바뀌었다.  
+그러니 아래의 내용을 고민해보자.  
+* CalculateExpiryDate 메서드의 첫 납부일 파라미터 추가
+* 첫 납부일, 납부일, 납부액을 담은 객체를 CalculateExpiryDate 메서드에 전달  
+
+파라미터 개수가 많아지면 안좋으니까 2번째인 객체로 전달하자.  
+그럼 우선 파라미터를 객체로 바꿔서 전달하는 리팩토링하고 테스트 추가합시다.  
+
+* PayData.java
+```
+@Builder
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class PayData {
+    private LocalDate billingDate;
+    private int payAmount;
+}
+```
+
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        return payData.getBillingDate().plusMonths(1);
+    }
+}
+```
+
+```
+public class ExpiryDateCalculatorTest {
+
+    private void assertExpiryDate(PayData payData, LocalDate expect) {
+        ExpiryDateCalculator expiryDateCalculator = new ExpiryDateCalculator();
+        LocalDate result = expiryDateCalculator.calculate(payData);
+        assertEquals(expect, result);
+    }
+
+    @DisplayName("만원 납부하면 한달 뒤가 만료일이 됨")
+    @Test
+    public void pay10000Won() {
+        LocalDate billingDate = LocalDate.of(2020, 12, 20);
+        LocalDate expect = LocalDate.of(2021, 1, 20);
+
+        int payAmount = 10000;
+        PayData payData = PayData.builder().payAmount(payAmount).billingDate(billingDate).build();
+        assertExpiryDate(payData, expect);
+
+        LocalDate billingDate2 = LocalDate.of(2021, 1, 20);
+        LocalDate expect2 = LocalDate.of(2021, 2, 20);
+        PayData payData2 = PayData.builder().payAmount(payAmount).billingDate(billingDate2).build();
+        assertExpiryDate(payData2, expect2);
+    }
+
+    @DisplayName("납부일과 한달 뒤 일자가 같지 않음")
+    @Test
+    public void notSameDayPay10000Won() {
+        LocalDate billingDate = LocalDate.of(2021, 1, 30);
+        LocalDate expect = LocalDate.of(2021, 2, 28);
+        int payAmount = 10000;
+        PayData payData = PayData.builder().payAmount(payAmount).billingDate(billingDate).build();
+        assertExpiryDate(payData, expect);
+    }
+}
+```
+
+리팩토링의 경우 파라미터를 객체로 바꿨으며, Lombok 을 사용하여 빌더도 추가했고, 코드 수를 좀 줄였다.  
+그리고 중복되던 단언문을 메서드 추출 기법으로 리팩토링 하였다.  
+
+## 예외 상황 테스트 진행 계속

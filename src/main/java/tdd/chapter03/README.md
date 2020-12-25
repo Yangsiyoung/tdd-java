@@ -378,3 +378,642 @@ public class ExpiryDateCalculatorTest {
 그리고 중복되던 단언문을 메서드 추출 기법으로 리팩토링 하였다.  
 
 ## 예외 상황 테스트 진행 계속
+앞서 말했던 아래의 케이스에 대한 테스트를 작성해보자.  
+* 첫 납부일이 2021-01-31 이고 만료되는 2021-02-28 에 1만원 납부하면 다음 만료일은 2021-03-31 이다.
+
+```
+@DisplayName("첫 납부일과 만료일자가 다를 때 만원 납부")
+@Test
+public void notSameDayPayAgain10000Won() {
+    LocalDate firstBillingDate = LocalDate.of(2021, 1, 31);
+    LocalDate billingDate = LocalDate.of(2021, 2, 28);
+    LocalDate expect = LocalDate.of(2021, 3, 31);
+    int payAmount = 10000;
+    PayData payData = PayData.builder().payAmount(payAmount).firstBillingDate(firstBillingDate).billingDate(billingDate).build();
+    assertExpiryDate(payData, expect);
+}
+```
+
+그런데 빌더에서 firstBillingDate(firstBillingDate) 는 구현해두지 않아서 에러가 날 것이다.  
+그래서 이제 구현해주면된다.  
+
+* PayData.java
+```
+@Builder
+@Getter
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class PayData {
+    private LocalDate firstBillingDate;
+    private LocalDate billingDate;
+    private int payAmount;
+}
+``` 
+
+요로코롬!!!  
+
+이제 상수를 이용하여 테스트를 통과시켜보자.  
+
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        if(payData.getFirstBillingDate() != null && payData.getFirstBillingDate().equals(LocalDate.of(2021, 1, 31))) {
+            return LocalDate.of(2021, 3, 31);
+        }
+        return payData.getBillingDate().plusMonths(1);
+    }
+}
+```
+
+이제 다음 케이스에 대해 테스트를 작성해보자.  
+* 첫 납부일이 2021-01-30 이고 만료되는 2021-02-28 에 1만원 납부하면 다음 만료일은 2021-03-30 이다.
+
+```
+@DisplayName("첫 납부일과 만료일자가 다를 때 만원 납부")
+@Test
+public void notSameDayPayAgain10000Won() {
+    LocalDate firstBillingDate = LocalDate.of(2021, 1, 31);
+    LocalDate billingDate = LocalDate.of(2021, 2, 28);
+    LocalDate expect = LocalDate.of(2021, 3, 31);
+    int payAmount = 10000;
+    PayData payData = PayData.builder().payAmount(payAmount).firstBillingDate(firstBillingDate).billingDate(billingDate).build();
+    assertExpiryDate(payData, expect);
+
+    firstBillingDate = LocalDate.of(2021, 1, 30);
+    expect = LocalDate.of(2021, 3, 30);
+    payData = PayData.builder().payAmount(payAmount).firstBillingDate(firstBillingDate).billingDate(billingDate).build();
+    assertExpiryDate(payData, expect);
+}
+```
+
+이제 상수로는 하기 힘들어졌으니 **테스트를 통과할 만큼만 일반화** 해보자.
+
+나는 처음에 아래와 같이 작성했다.  
+* ExpiryDateCalculator.java (내가 생각했던 버전)
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        if(payData.getFirstBillingDate() != null) {
+            if(!payData.getFirstBillingDate().equals(payData.getBillingDate())) {
+                return payData.getFirstBillingDate().plusMonths(2);
+            }
+        }
+
+        return payData.getBillingDate().plusMonths(1);
+    }
+}
+```
+하지만 책에서는 아래와 같이 코드가 있었고, 아래의 코드가 좀 더 로직이 명확한 것 같다.  
+
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(1);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                // 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+            }
+        }
+
+        return payData.getBillingDate().plusMonths(1);
+    }
+}
+```
+
+## 코드 정리 : 상수를 변수로
+달을 추가하는 과정에서 숫자 1을 사용했다, 그래서 1을 변수로 바꿨다.  
+
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = 1;
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                // 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+            }
+        }
+
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+## 다음 테스트 선택 : 쉬운 테스트
+아래 두가지 중에서 다음 테스트를 선택하자.  
+* 2만원을 지불하면 만료일이 두달뒤가 된다.  
+* 3만원을 지불하면 만료일이 세달뒤가 된다.  
+
+지불한 금액이 곧 추가할 개월 수에 비례하기때문에 계산하기 쉬우니까  
+2만원부터 진행하자.  
+
+```
+@DisplayName("2만원 이상 납부하면 비례해서 만료일 계산")
+@Test
+public void calculateInProportionToWon() {
+    LocalDate billingDate = LocalDate.of(2021, 1, 31);
+    LocalDate expect = LocalDate.of(2021, 3, 31);
+    int payAmount = 20000;
+    PayData payData = PayData.builder().billingDate(billingDate).payAmount(payAmount).build();
+    assertExpiryDate(payData, expect);
+}
+```
+
+테스트를 통과하기 위해 구현하는데 구현할게 명확하므로 아래와같이 바로 구현했다.  
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                // 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+            }
+        }
+
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+다른 테스트도 통과하는지 3만원으로 진행해보자.  
+```
+@DisplayName("2만원 이상 납부하면 비례해서 만료일 계산")
+@Test
+public void calculateInProportionToWon() {
+    LocalDate billingDate = LocalDate.of(2021, 1, 31);
+    LocalDate expect = LocalDate.of(2021, 3, 31);
+    int payAmount = 20000;
+    PayData payData = PayData.builder().billingDate(billingDate).payAmount(payAmount).build();
+    assertExpiryDate(payData, expect);
+
+    expect = LocalDate.of(2021, 4, 30);
+    payAmount = 30000;
+    payData = PayData.builder().billingDate(billingDate).payAmount(payAmount).build();
+    assertExpiryDate(payData, expect);
+}
+```
+
+잘통과한다. 이제 예외 상황에 대한 테스트를 추가해보자.
+  
+## 예외 상황 테스트 추가
+
+첫 납부일과 납부일자가 다를때 2만원 이상 납부한 경우를 테스트해보자.  
+* 첫 납부일이 2021-01-31 이고 만료되는 2021-02-28 에 2만원을 납부하면 다음 만료일은 2021-04-30 이다.  
+
+```
+@DisplayName("첫 납부일과 만료일자가 다를 때 2만원 이상 납부")
+@Test
+public void notSameDayPayAgainOver10000Won() {
+    LocalDate firstBillingDate = LocalDate.of(2021, 1, 31);
+    LocalDate billingDate = LocalDate.of(2021, 2, 28);
+    int payAmount = 20000;
+    LocalDate expect = LocalDate.of(2021, 4, 30);
+
+    PayData payData = PayData.builder()
+                        .firstBillingDate(firstBillingDate)
+                        .billingDate(billingDate)
+                        .payAmount(payAmount)
+                        .build();
+
+    assertExpiryDate(payData, expect);
+}
+```
+그리고 아래와 같은 에러를 만나게 된다.  
+java.time.DateTimeException: Invalid date 'APRIL 31'  
+
+그래서 이와같은 현상을 해결하기 위해 나는 아래와 같이 코드를 작성했었다.  
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                /*
+                 * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                 * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+                 * 아래의 조건문을 우선 실행
+                 */
+                if(YearMonth.from(candidateExpiryDate).isValidDay(payData.getFirstBillingDate().getDayOfMonth())) {
+                    return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+                }
+                return YearMonth.from(candidateExpiryDate).atEndOfMonth();
+                
+            }
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+그리고 책의 경우 아래와 같이 작성했다.  
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                /*
+                 * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                 * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+                 * 아래의 조건문을 우선 실행
+                 */
+                if(YearMonth.from(candidateExpiryDate).lengthOfMonth() < payData.getFirstBillingDate().getDayOfMonth()) {
+                    return candidateExpiryDate.withDayOfMonth(YearMonth.from(candidateExpiryDate).lengthOfMonth());
+                }
+                return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+            }
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+이제 같은 로직의 테스트를 좀 더 추가해보자.
+```
+@DisplayName("첫 납부일과 만료일자가 다를 때 2만원 이상 납부")
+@Test
+public void notSameDayPayAgainOver10000Won() {
+    LocalDate firstBillingDate = LocalDate.of(2021, 1, 31);
+    LocalDate billingDate = LocalDate.of(2021, 2, 28);
+    int payAmount = 20000;
+    LocalDate expect = LocalDate.of(2021, 4, 30);
+
+    PayData payData = PayData.builder()
+                        .firstBillingDate(firstBillingDate)
+                        .billingDate(billingDate)
+                        .payAmount(payAmount)
+                        .build();
+
+    assertExpiryDate(payData, expect);
+
+    payAmount = 30000;
+    expect = LocalDate.of(2021, 5, 31);
+    payData = PayData.builder()
+            .firstBillingDate(firstBillingDate)
+            .billingDate(billingDate)
+            .payAmount(payAmount)
+            .build();
+    assertExpiryDate(payData, expect);
+
+}
+```
+
+모든 테스트를 통과하는 것을 확인 할 수 있다.  
+
+## 코드 정리
+* ExpiryDateCalculator.java 
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                /*
+                 * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                 * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+                 * 아래의 조건문을 우선 실행
+                 */
+                if(YearMonth.from(candidateExpiryDate).lengthOfMonth() < payData.getFirstBillingDate().getDayOfMonth()) {
+                    return candidateExpiryDate.withDayOfMonth(YearMonth.from(candidateExpiryDate).lengthOfMonth());
+                }
+                return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+            }
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+우선 많은 중복이 눈에 들어오는데 후보 만료일이 속한 월의 마지막 일자를 구하는 코드의 중복을 없애보자.  
+
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                /*
+                 * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                 * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+                 * 아래의 조건문을 우선 실행
+                 */
+                final int dayLengthOfCandidateExpiryDate = YearMonth.from(candidateExpiryDate).lengthOfMonth();
+                if(dayLengthOfCandidateExpiryDate < payData.getFirstBillingDate().getDayOfMonth()) {
+                    return candidateExpiryDate.withDayOfMonth(dayLengthOfCandidateExpiryDate);
+                }
+                return candidateExpiryDate.withDayOfMonth(payData.getFirstBillingDate().getDayOfMonth());
+            }
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+그리고 첫 납부일의 일자를 구하는 코드의 중복도 없애보자.  
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(payData.getFirstBillingDate() != null) {
+            // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+            if(payData.getFirstBillingDate().getDayOfMonth() != candidateExpiryDate.getDayOfMonth()) {
+                /*
+                 * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+                 * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+                 * 아래의 조건문을 우선 실행
+                 */
+                final int dayLengthOfCandidateExpiryDate = YearMonth.from(candidateExpiryDate).lengthOfMonth();
+                final int dayLengthOfFirstBillingDate = payData.getFirstBillingDate().getDayOfMonth();
+                if(dayLengthOfCandidateExpiryDate < dayLengthOfFirstBillingDate) {
+                    return candidateExpiryDate.withDayOfMonth(dayLengthOfCandidateExpiryDate);
+                }
+                return candidateExpiryDate.withDayOfMonth(dayLengthOfFirstBillingDate);
+            }
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+}
+```
+
+테스트를 전체적으로 다시 돌려보고 이상이 없다면 가독성도 높여보자.  
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int addMonth = payData.getPayAmount() / 10000;
+        if(payData.getFirstBillingDate() != null) {
+            return expiryDateUsingFirstBillingDate(payData, addMonth);
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+
+
+    private LocalDate expiryDateUsingFirstBillingDate(PayData payData, int addMonth) {
+        // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(isSameDayOfMonth(payData.getFirstBillingDate(), candidateExpiryDate)) {
+            /*
+             * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+             * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+             * 아래의 조건문을 우선 실행
+             */
+            final int dayLengthOfCandidateExpiryDate = lastDayOfMonth(candidateExpiryDate);
+            final int dayLengthOfFirstBillingDate = payData.getFirstBillingDate().getDayOfMonth();
+            if(dayLengthOfCandidateExpiryDate < dayLengthOfFirstBillingDate) {
+                return candidateExpiryDate.withDayOfMonth(dayLengthOfCandidateExpiryDate);
+            }
+            return candidateExpiryDate.withDayOfMonth(dayLengthOfFirstBillingDate);
+        }
+        return candidateExpiryDate;
+    }
+
+    private boolean isSameDayOfMonth(LocalDate firstLocalDate, LocalDate secondLocalDate) {
+        return firstLocalDate.getDayOfMonth() != secondLocalDate.getDayOfMonth();
+    }
+
+    private int lastDayOfMonth(LocalDate localDate) {
+        return YearMonth.from(localDate).lengthOfMonth();
+    }
+}
+```
+
+테스트가 모두 통과하는 것을 확인하고 다음 테스트로 넘어가자.  
+
+## 다음 테스트 : 10개월 요금을 납부하면 1년 제공
+이제 10만원을 납부하면 서비스를 1년 제공하는 규칙을 구현하자.  
+해당 규칙 관련 테스트를 작성해보자.  
+
+```
+@DisplayName("10만원 납부하면 1년 제공")
+@Test
+public void pay100000Won() {
+    LocalDate billingDate = LocalDate.of(2021, 1, 31);
+    int payAmount = 100_000;
+    LocalDate expect = LocalDate.of(2022, 1, 31);
+    PayData payData = PayData.builder()
+                            .billingDate(billingDate)
+                            .payAmount(payAmount)
+                            .build();
+
+    assertExpiryDate(payData, expect);
+}
+```
+
+이제 테스트를 통과하도록 구현해보자.  
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int payAmount = payData.getPayAmount();
+        int addMonth = payAmount == 100000 ? 12 : payAmount / 10000;
+        if(payData.getFirstBillingDate() != null) {
+            return expiryDateUsingFirstBillingDate(payData, addMonth);
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+
+
+    private LocalDate expiryDateUsingFirstBillingDate(PayData payData, int addMonth) {
+        // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(isSameDayOfMonth(payData.getFirstBillingDate(), candidateExpiryDate)) {
+            /*
+             * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+             * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+             * 아래의 조건문을 우선 실행
+             */
+            final int dayLengthOfCandidateExpiryDate = lastDayOfMonth(candidateExpiryDate);
+            final int dayLengthOfFirstBillingDate = payData.getFirstBillingDate().getDayOfMonth();
+            if(dayLengthOfCandidateExpiryDate < dayLengthOfFirstBillingDate) {
+                return candidateExpiryDate.withDayOfMonth(dayLengthOfCandidateExpiryDate);
+            }
+            return candidateExpiryDate.withDayOfMonth(dayLengthOfFirstBillingDate);
+        }
+        return candidateExpiryDate;
+    }
+
+    private boolean isSameDayOfMonth(LocalDate firstLocalDate, LocalDate secondLocalDate) {
+        return firstLocalDate.getDayOfMonth() != secondLocalDate.getDayOfMonth();
+    }
+
+    private int lastDayOfMonth(LocalDate localDate) {
+        return YearMonth.from(localDate).lengthOfMonth();
+    }
+}
+```
+
+이제 윤달의 마지막 날에 10만원을 납부하는 케이스 혹은 13만원을 납부하는 케이스에 대해서도 생각을 해봐야한다.  
+13만원의 경우 1년 3개월 뒤가 만료일이 되어야 한다. 
+
+먼저 윤달의 마지막 날에 10만원을 납부하는 케이스를 생각해보자.  
+
+```
+@DisplayName("윤달에 10만원 납부")
+@Test
+public void pay100000WonFeb29() {
+    LocalDate billingDate = LocalDate.of(2020, 2, 29);
+    int payAmount = 100_000;
+    LocalDate expect = LocalDate.of(2021, 2, 28);
+    PayData payData = PayData.builder()
+                            .billingDate(billingDate)
+                            .payAmount(payAmount)
+                            .build();
+
+    assertExpiryDate(payData, expect);
+}
+```
+
+테스트 결과 LocalDate 의 plusMonths 라이브러리가 알아서 잘 계산해줘서 바로 통과할 수 있었다.  
+
+이제 13만원을 납부하는 케이스에 대해서 생각을 해보자.  
+
+```
+@DisplayName("10민원 넘게 납부하는 경우")
+    @Test
+    public void payOver100000Won() {
+        LocalDate billingDate = LocalDate.of(2021, 1, 31);
+        int payAmount = 130_000;
+        LocalDate expect = LocalDate.of(2022, 4, 30);
+        PayData payData = PayData.builder()
+                                .billingDate(billingDate)
+                                .payAmount(payAmount)
+                                .build();
+
+        assertExpiryDate(payData, expect);
+    }
+```
+
+이 테스트를 통과시키기위해 구현해보자.  
+* ExpiryDateCalculator.java
+```
+public class ExpiryDateCalculator {
+    public LocalDate calculate(PayData payData) {
+        int payAmount = payData.getPayAmount();
+        int addMonth = calculateAddMonth(payAmount);
+        if(payData.getFirstBillingDate() != null) {
+            return expiryDateUsingFirstBillingDate(payData, addMonth);
+        }
+        return payData.getBillingDate().plusMonths(addMonth);
+    }
+
+
+    private LocalDate expiryDateUsingFirstBillingDate(PayData payData, int addMonth) {
+        // 첫 납부일의 일자와 현재 납부일 + 1달의 일자가 다르면
+        LocalDate candidateExpiryDate = payData.getBillingDate().plusMonths(addMonth);
+        if(isSameDayOfMonth(payData.getFirstBillingDate(), candidateExpiryDate)) {
+            /*
+             * 현재 납부일 + 1달의 달 에다가 첫 납부일의 일자로 해서 리턴(첫달 납부 일자의 규칙을 따라감)
+             * 하지만 첫달에는 31일이 있는데 납부일 + 1달에는 31일이 없는 경우도 생각해야하기에
+             * 아래의 조건문을 우선 실행
+             */
+            final int dayLengthOfCandidateExpiryDate = lastDayOfMonth(candidateExpiryDate);
+            final int dayLengthOfFirstBillingDate = payData.getFirstBillingDate().getDayOfMonth();
+            if(dayLengthOfCandidateExpiryDate < dayLengthOfFirstBillingDate) {
+                return candidateExpiryDate.withDayOfMonth(dayLengthOfCandidateExpiryDate);
+            }
+            return candidateExpiryDate.withDayOfMonth(dayLengthOfFirstBillingDate);
+        }
+        return candidateExpiryDate;
+    }
+
+    private boolean isSameDayOfMonth(LocalDate firstLocalDate, LocalDate secondLocalDate) {
+        return firstLocalDate.getDayOfMonth() != secondLocalDate.getDayOfMonth();
+    }
+
+    private int lastDayOfMonth(LocalDate localDate) {
+        return YearMonth.from(localDate).lengthOfMonth();
+    }
+
+    private int calculateAddMonth(int payAmount) {
+        int addMonth = payAmount / 10000;
+        if(payAmount >= 100000) {
+            // 10만원 마다 1년이니까 그리고 23만원이면 2년 + 3개월이니까
+            addMonth = 12 * (payAmount / 100000) + ((payAmount % 100000) / 10000);
+        }
+        return addMonth;
+    }
+}
+```
+
+일반화도 같이 진행했으니 23만원을 납부했을 경우 2년 + 3개월이 되는지 테스트
+
+```
+@DisplayName("10민원 넘게 납부하는 경우")
+@Test
+public void payOver100000Won() {
+    LocalDate billingDate = LocalDate.of(2021, 1, 31);
+    int payAmount = 130_000;
+    LocalDate expect = LocalDate.of(2022, 4, 30);
+    PayData payData = PayData.builder()
+                            .billingDate(billingDate)
+                            .payAmount(payAmount)
+                            .build();
+
+    assertExpiryDate(payData, expect);
+
+    payAmount = 230_000;
+    expect = LocalDate.of(2023, 4, 30);
+    payData = PayData.builder()
+            .billingDate(billingDate)
+            .payAmount(payAmount)
+            .build();
+
+    assertExpiryDate(payData, expect);
+}
+```
+잘 통과한다.  
+이제 유료 서비스 납부에 대한 예제를 끝내도록 하겠다.  
+
+## 테스트할 목록 정하기
+TDD 를 시작할 때 테스트할 목록을 미리 정리하면 좋다고 한다.  
+테스트할 목록을 정리하고 어떤 테스트가 쉬울지 상상해보고 어떤 테스트가 예외적인지 생각해본다.  
+
+테스트 과정에서 새로운 테스트 사례를 발견하면 그 사례를 목록에 추가해서 놓치지 않도록하자.  
+처음부터 모든 케이스를 정리하려면 시간이 오래걸리기도하고 쉽지않으니까  
+테스트 과정에서 새롭게 발겨되면 그때그때 추가하자.  
+
+테스트를 한번에 다 작성하지말고, 하나씩 진행해보자 그러면서 점진적으로 리팩토링 할 수 있는 구조를 만들자.  
+하나의 테스트 코드를 만들고 통과시키고 리팩토링하고, 다시 테스트 코드를 만들고하는 과정은  
+짧은 리듬을 반복하기 때문에 다루는 범위가 작고 개발 주기도 짧아서 개발 집중력도 높아진다고 한다.  
+
+리팩토링 범위가 넓은 큰 리팩토링을 발견할 때가 있을 것 이다.  
+시간이 오래걸리기 때문에 TDD 흐름이 깨지기 쉬울것이라고 한다.  
+이럴땐 테스트를 통과시키는데 집중을 하고 대신 범위가 큰 리팩토링을 다음 할 일 목록에 추가해서  
+놓치지않고 진행하는것도 좋은 방법이라고 한다.  
+
+## 시작이 안 될 때는 단언부터 고민
+테스트 코드를 작성하다보면 시작이 안될때가 있다.  
+이럴떈 검증하는 코드부터 작성하기 시작하면 도움이 된다고 한다.  
+(assert 부터 작성해보면 도움이 될 것이라는 뜻 같다.)
+
+## 구현이 막히면  
+TDD 를 진행하다 구현이 막힐땐 과감하게 코드를 지우고 미련없이 다시 시작하라고한다.  
+그리고 다시 진행할 때 아래의 내용을 상기해본다.  
+* 쉬운 테스트, 예외적인 테스트
+* 완급 조절

@@ -10,6 +10,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PayData {
+    private LocalDate firstBillingDate;
     private LocalDate billingDate;
     private int payAmount;
 }

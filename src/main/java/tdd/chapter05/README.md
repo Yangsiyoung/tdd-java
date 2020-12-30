@@ -365,7 +365,7 @@ public void disabledTest() {
 # 모든 테스트 실행하기
 인텔리제이와 같은 IDE 에서 실행하거나  
 Maven 의 경우 : mvn test (wrapper : mvnw test)  
-Gradle 의 경우 : gradle test (wraptter : gradlew test)  
+Gradle 의 경우 : gradle test (wrapper : gradlew test)  
 명령어를 수행하면 된다.  
 
 * gradle test 실행 결과(통과)

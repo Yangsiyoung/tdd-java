@@ -50,3 +50,6 @@ public class Calculator {
 
 # Junit 5
 [보러가기](https://github.com/Yangsiyoung/tdd-java/tree/master/src/main/java/tdd/chapter05)
+
+# 테스트 코드의 구성
+[보러가기](https://github.com/Yangsiyoung/tdd-java/tree/master/src/main/java/tdd/chapter06)

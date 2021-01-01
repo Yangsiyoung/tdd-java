@@ -1,7 +1,7 @@
-package tdd.chapter07.stub;
+package tdd.chapter07.card.stub;
 
-import tdd.chapter07.AutoDebitInfoRepository;
-import tdd.chapter07.AutoDebitInfo;
+import tdd.chapter07.card.AutoDebitInfoRepository;
+import tdd.chapter07.card.AutoDebitInfo;
 
 public class StubAutoDebitInfoRepository implements AutoDebitInfoRepository {
     @Override

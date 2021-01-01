@@ -1,4 +1,4 @@
-package tdd.chapter07;
+package tdd.chapter07.card;
 
 // JPA Repository
 public interface AutoDebitInfoRepository {

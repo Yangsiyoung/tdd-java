@@ -56,3 +56,7 @@ public class Calculator {
 
 # 대역
 [보러가기](https://github.com/Yangsiyoung/tdd-java/tree/master/src/main/java/tdd/chapter07)
+
+# 테스트 가능한 설계
+[보러가기](https://github.com/Yangsiyoung/tdd-java/tree/master/src/main/java/tdd/chapter08)
+

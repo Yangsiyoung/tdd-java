@@ -1,7 +1,7 @@
-package tdd.chapter07.fake;
+package tdd.chapter07.card.fake;
 
-import tdd.chapter07.AutoDebitInfo;
-import tdd.chapter07.AutoDebitInfoRepository;
+import tdd.chapter07.card.AutoDebitInfo;
+import tdd.chapter07.card.AutoDebitInfoRepository;
 
 import java.util.HashMap;
 import java.util.Map;

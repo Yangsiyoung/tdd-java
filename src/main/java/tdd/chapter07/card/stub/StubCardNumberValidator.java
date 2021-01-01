@@ -1,7 +1,7 @@
-package tdd.chapter07.stub;
+package tdd.chapter07.card.stub;
 
-import tdd.chapter07.CardNumberValidator;
-import tdd.chapter07.CardValidity;
+import tdd.chapter07.card.CardNumberValidator;
+import tdd.chapter07.card.CardValidity;
 
 public class StubCardNumberValidator extends CardNumberValidator {
     private String invalidCardNumber;

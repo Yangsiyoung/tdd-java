@@ -1,4 +1,4 @@
-package tdd.chapter07;
+package tdd.chapter07.card;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
